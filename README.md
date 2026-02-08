@@ -51,7 +51,7 @@ pip install -r requirements.txt
 **Requirements:**
 - Python 3.7+
 - numpy >= 1.20.0
-- scipy >= 1.7.0
+- scipy >= 1.8.0
 - pulp >= 2.7.0
 
 ## Usage
