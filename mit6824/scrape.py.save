@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+import re
+import sys
+import json
+import time
+import hashlib
+from urllib.parse import urljoin, urlparse
+
+import requests
+from bs4 import BeautifulSoup
+
+
+COURSE_URL = "把课程页面URL放这里"  # 例如: "https://pdos.csail.mit.edu/6.824/schedule.html"
+OUT_DIR = "out"
+PDF_DIR = os.path.join(OUT_DIR, "pdfs")
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+}
+
+TIMEOUT = 30
+
+
+def safe_filename(name: str) -> str:
+    name = name.strip()
+    name = re.sub(r"[\\/:*?\"<>|]+", "_", name)
+    name = re.sub(r"\s+", " ", name)
+    return name[:180] if len(name) > 180 else name
+
+
+def sha256_bytes(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
+
+
+def fetch_html(url: str) -> str:
+    r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    r.raise_for_status()
+    # requests 通常能猜对编码，但这里保险一点
+    if r.encoding is None:
+        r.encoding = "utf-8"
+    return r.text
+
+
+def extract_pdf_links(base_url: str, soup: BeautifulSoup) -> list[dict]:
+    seen = set()
+    results = []
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if not href:
+            continue
+
+        full = urljoin(base_url, href)
+
+        # 只收集看起来是 PDF 的链接
+        if ".pdf" not in full.lower():
+            continue
+
+        # 去掉 fragment
+        full = full.split("#")[0]
+
+        if full in seen:
+            continue
+        seen.add(full)
+
+        text = a.get_text(" ", strip=True) or ""
+        results.append({
+            "url": full,
+            "anchor_text": text
+        })
+
+    return results
+
+
+def download_file(url: str, out_path: str) -> dict:
+    r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    r.raise_for_status()
+    content = r.content
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "wb") as f:
+        f.write(content)
+
+    return {
+        "path": out_path,
+        "bytes": len(content),
+        "sha256": sha256_bytes(content),
+        "content_type": r.headers.get("Content-Type", "")
+    }
+
+
+def main():
+    if COURSE_URL.startswith("把课程页面URL放这里") or not COURSE_URL.startswith("http"):
+        print("请先在 scrape.py 里把 COURSE_URL 改成真实网址。")
+        sys.exit(1)
+
+    os.makedirs(OUT_DIR, exist_ok=True)
+    os.makedirs(PDF_DIR, exist_ok=True)
+
+    print(f"抓取页面: {COURSE_URL}")
+    html = fetch_html(COURSE_URL)
+
+    # 保存原始HTML（留底）
+    html_path = os.path.join(OUT_DIR, "page.html")
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    # 保存纯文本（便于搜索）
+    text = soup.get_text("\n", strip=True)
+    text_path = os.path.join(OUT_DIR, "page.txt")
+    with open(text_path, "w", encoding="utf-8") as f:
+        f.write(text + "\n")
+
+    # 提取 PDF 链接
+    pdfs = extract_pdf_links(COURSE_URL, soup)
+    print(f"找到 PDF 链接数量: {len(pdfs)}")
+
+    # 保存链接清单
+    links_path = os.path.join(OUT_DIR, "pdf_links.json")
+    with open(links_path, "w", encoding="utf-8") as f:
+        json.dump(pdfs, f, ensure_ascii=False, indent=2)
+
+    # 下载 PDF
+    results = []
+    for i, item in enumerate(pdfs, 1):
+        url = item["url"]
+        parsed = urlparse(url)
+        filename = os.path.basename(parsed.path) or f"file_{i}.pdf"
+        filename = safe_filename(filename)
+        if not filename.lower().endswith(".pdf"):
+            filename += ".pdf"
+
+        out_path = os.path.join(PDF_DIR, filename)
+
+        print(f"[{i}/{len(pdfs)}] 下载: {filename}")
+        try:
+            meta = download_file(url, out_path)
+            results.append({
+                "url": url,
+                "anchor_text": item.get("anchor_text", ""),
+                **meta
+            })
+        except Exception as e:
+            results.append({
+                "url": url,
+                "anchor_text": item.get("anchor_text", ""),
+                "error": str(e)
+            })
+            print(f"  失败: {e}")
+
+        # 友好一点，避免太快
+        time.sleep(0.2)
+
+    # 保存下载结果
+    report_path = os.path.join(OUT_DIR, "download_report.json")
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+
+    ok = sum(1 for r in results if "error" not in r)
+    fail = len(results) - ok
+    print(f"完成：成功 {ok}，失败 {fail}")
+    print(f"输出目录：{os.path.abspath(OUT_DIR)}")
+
+
+if __name__ == "__main__":
+    main
