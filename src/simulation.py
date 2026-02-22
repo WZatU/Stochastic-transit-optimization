@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
+from src.delays import sample_arrival_delays
 from src.demo_network import ODMatrix, build_demo_network
 from src.ean import EventActivityNetwork
 from src.optimization import solve_tdm_b
@@ -17,26 +18,6 @@ class PolicyOutcome:
     total_passenger_delay: float
     miss_rate: float
     door_to_door: float
-
-
-def _sample_arrival_delays(
-    ean: EventActivityNetwork,
-    dist: str,
-    param_1: float,
-    param_2: float,
-    rng: random.Random,
-) -> Dict[int, float]:
-    delays: Dict[int, float] = {}
-    for eid, e in ean.events.items():
-        if e.event_type != "arrival":
-            continue
-        if dist == "exp":
-            delays[eid] = rng.expovariate(param_1)
-        elif dist == "normal":
-            delays[eid] = max(0.0, rng.gauss(param_1, param_2))
-        else:
-            raise ValueError("dist must be exp or normal")
-    return delays
 
 
 def _baseline_planned_travel(
@@ -104,6 +85,9 @@ def run_monte_carlo(
     rule_threshold: float = 3.0,
     unserved_penalty: float = 60.0,
 ) -> dict:
+    if n <= 0:
+        raise ValueError("n must be positive")
+
     ean, od, transfer_ids = build_demo_network()
     planned_travel, base_loads, transfer_total = _baseline_planned_travel(ean, od)
     transfer_load = {aid: base_loads.get(aid, 0.0) for aid in transfer_ids}
@@ -119,13 +103,7 @@ def run_monte_carlo(
     solver_backend = "unknown"
 
     for _ in range(n):
-        sampled = _sample_arrival_delays(
-            ean,
-            dist=dist,
-            param_1=0.25 if dist == "exp" else 2.0,
-            param_2=1.2,
-            rng=rng,
-        )
+        sampled = sample_arrival_delays(ean, dist=dist, rng=rng)
 
         pre_control = compute_realized_times(ean, sampled, inactive_activities=set())
 
@@ -133,7 +111,9 @@ def run_monte_carlo(
         rule_decision = {}
         for aid in transfer_ids:
             a = ean.activities[aid]
-            incoming_delay = max(0.0, pre_control[a.from_event] - ean.events[a.from_event].planned_time)
+            incoming_delay = max(
+                0.0, pre_control[a.from_event] - ean.events[a.from_event].planned_time
+            )
             rule_decision[aid] = 1 if incoming_delay <= rule_threshold else 0
 
         lp = solve_tdm_b(
@@ -208,6 +188,7 @@ def run_monte_carlo(
             "distribution": dist,
             "solver_backend": solver_backend,
             "penalty_t": penalty_t,
+            "seed": seed,
         },
         "scenarios": scenarios,
     }

@@ -12,10 +12,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Stochastic transit simulation demo")
     parser.add_argument("--runs", type=int, default=300)
     parser.add_argument("--dist", type=str, default="exp", choices=["exp", "normal"])
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--penalty-t", type=float, default=12.0)
+    parser.add_argument("--rule-threshold", type=float, default=3.0)
     parser.add_argument("--out", type=str, default="docs/results.json")
     args = parser.parse_args()
 
-    result = run_monte_carlo(n=args.runs, dist=args.dist)
+    result = run_monte_carlo(
+        n=args.runs,
+        dist=args.dist,
+        seed=args.seed,
+        penalty_t=args.penalty_t,
+        rule_threshold=args.rule_threshold,
+    )
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:

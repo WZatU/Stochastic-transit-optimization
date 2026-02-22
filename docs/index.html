@@ -65,7 +65,7 @@
 <body>
   <div class="wrap">
     <h1>Stochastic Transit Simulation & Optimization</h1>
-    <p>EAN + delay management (TDM-B) with Monte Carlo comparison.</p>
+    <p>EAN + TDM-B + Monte Carlo strategy comparison.</p>
 
     <div class="card">
       <h3>Network Sketch</h3>
@@ -76,7 +76,7 @@
         <div class="node">C</div>
       </div>
       <div class="line"></div>
-      <div class="meta">Lines: A→B→C, A→D→C, B→D (transfer controlled at B and D).</div>
+      <div class="meta">Lines: A→B→C and B→D→C. Transfer decisions are controllable at B and D.</div>
     </div>
 
     <div class="card">
@@ -97,23 +97,31 @@
   </div>
 
   <script>
+    function fmt(x) {
+      if (typeof x !== 'number') return x;
+      return Number.isInteger(x) ? String(x) : x.toFixed(3);
+    }
+
     async function main() {
       const res = await fetch('./results.json');
       const data = await res.json();
       const tbody = document.getElementById('rows');
+
       data.scenarios.forEach(item => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${item.scenario}</td>
-          <td>${item.avg_delay}</td>
-          <td>${item.miss_rate}</td>
-          <td>${item.avg_door_to_door}</td>
+          <td>${fmt(item.avg_delay)}</td>
+          <td>${fmt(item.miss_rate)}</td>
+          <td>${fmt(item.avg_door_to_door)}</td>
         `;
         tbody.appendChild(tr);
       });
+
       document.getElementById('meta').textContent =
-        `runs=${data.meta.runs}, dist=${data.meta.distribution}, solver=${data.meta.solver_backend}`;
+        `runs=${data.meta.runs}, dist=${data.meta.distribution}, solver=${data.meta.solver_backend}, seed=${data.meta.seed}, penalty_t=${data.meta.penalty_t}`;
     }
+
     main();
   </script>
 </body>

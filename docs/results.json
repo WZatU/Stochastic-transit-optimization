@@ -1,28 +1,29 @@
 {
   "meta": {
-    "runs": 120,
+    "runs": 300,
     "distribution": "exp",
-    "solver_backend": "enumeration",
-    "penalty_t": 12.0
+    "solver_backend": "pulp",
+    "penalty_t": 12.0,
+    "seed": 7
   },
   "scenarios": [
     {
       "scenario": "no_management",
-      "avg_delay": 3110.867,
+      "avg_delay": 3165.861,
       "miss_rate": 1.0,
-      "avg_door_to_door": 40.254
+      "avg_door_to_door": 40.529
     },
     {
       "scenario": "rule_based",
-      "avg_delay": 1667.816,
-      "miss_rate": 0.333,
-      "avg_door_to_door": 33.039
+      "avg_delay": 1841.158,
+      "miss_rate": 0.39,
+      "avg_door_to_door": 33.906
     },
     {
       "scenario": "lp_based",
-      "avg_delay": 1053.946,
-      "miss_rate": 0.033,
-      "avg_door_to_door": 29.97
+      "avg_delay": 1117.711,
+      "miss_rate": 0.023,
+      "avg_door_to_door": 30.289
     }
   ]
 }

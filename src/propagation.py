@@ -5,6 +5,24 @@ from typing import Dict, Iterable, Set
 from src.ean import EventActivityNetwork
 
 
+def compute_earliest_times(
+    ean: EventActivityNetwork,
+    source_event: int,
+    source_delay: float = 0.0,
+) -> Dict[int, float]:
+    """
+    Compatibility helper for Phase-2 single-source propagation.
+
+    This function applies a delay to one source event and propagates the
+    feasibility constraints through all active activities.
+    """
+    return compute_realized_times(
+        ean,
+        arrival_source_delay={source_event: source_delay},
+        inactive_activities=set(),
+    )
+
+
 def compute_realized_times(
     ean: EventActivityNetwork,
     arrival_source_delay: Dict[int, float],

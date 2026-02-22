@@ -8,3 +8,4 @@ def test_monte_carlo_smoke() -> None:
     for item in out["scenarios"]:
         assert item["avg_delay"] >= 0
         assert 0 <= item["miss_rate"] <= 1
+        assert item["avg_door_to_door"] >= 0

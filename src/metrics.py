@@ -1,6 +1,8 @@
+"""Compatibility helpers for historical Phase-2 scripts."""
+
 from typing import Dict, List
 
-from src.network import EventActivityNetwork
+from src.ean import EventActivityNetwork
 
 
 def compute_activity_slack(
@@ -8,7 +10,7 @@ def compute_activity_slack(
     times: Dict[int, float],
 ) -> Dict[int, float]:
     """
-    Phase 2.5: Slack per activity.
+    Slack per activity under a realized timetable.
 
     slack(a) = (times[to] - times[from]) - min_duration
     """
@@ -19,7 +21,5 @@ def compute_activity_slack(
 
 
 def critical_activities(slacks: Dict[int, float], eps: float = 1e-9) -> List[int]:
-    """
-    Activity is critical if slack <= eps (numerical tolerance).
-    """
+    """Activity is critical if slack <= eps (numerical tolerance)."""
     return [aid for aid, s in slacks.items() if s <= eps]
